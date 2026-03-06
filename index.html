@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Parts Department Master Suite</title>
+  <style>
+    :root {
+      --sidebar-bg: #1e272e;
+      --primary-color: #3c40c6;
+      --bg-color: #f1f2f6;
+      --danger: #ff3f34;
+      --success: #05c46b;
+      --warning: #f39c12;
+    }
+
+    body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-color); color: #333; }
+    .app-container { display: flex; height: 100vh; overflow: hidden; }
+
+    /* Sidebar */
+    .sidebar { width: 250px; background: var(--sidebar-bg); color: white; display: flex; flex-direction: column; }
+    .sidebar h2 { padding: 20px; margin: 0; border-bottom: 1px solid #333; font-size: 20px; text-align: center; }
+    .sidebar ul { list-style: none; padding: 0; margin: 0; }
+    .sidebar li { padding: 15px 20px; cursor: pointer; border-bottom: 1px solid #2f3640; transition: background 0.2s; }
+    .sidebar li:hover { background: #485460; }
+    .sidebar li.active { background: var(--primary-color); border-left: 4px solid #fff; }
+
+    /* Main Content */
+    .main-content { flex: 1; padding: 40px; overflow-y: auto; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.3s; }
+
+    header h1 { margin-top: 0; color: #2f3640; }
+    header p { color: #7f8fa6; margin-bottom: 30px; }
+
+    /* Summary Cards */
+    .summary-cards { display: flex; gap: 20px; margin-bottom: 20px; }
+    .card { background: #fff; padding: 20px; flex: 1; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-left: 5px solid var(--primary-color); }
+    .card.red { border-left-color: var(--danger); }
+    .card.green { border-left-color: var(--success); }
+    .card h3 { margin: 0 0 10px 0; font-size: 14px; color: #7f8fa6; text-transform: uppercase; }
+    .card h2 { margin: 0; font-size: 28px; color: #2f3640; }
+
+    /* Tables */
+    .table-container { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f8f9fa; color: #2f3640; position: sticky; top: 0; }
+    tr:hover { background: #fdfdfd; }
+
+    .badge { padding: 6px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; }
+    .badge.red { background: var(--danger); }
+    .badge.green { background: var(--success); }
+    .badge.orange { background: var(--warning); }
+
+    .loading { font-size: 18px; color: #3c40c6; font-weight: bold; }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+
+<div class="app-container">
+  <aside class="sidebar">
+    <h2>Parts Suite Pro</h2>
+    <ul id="navMenu">
+      <li class="active" data-target="tab-ep" onclick="loadEP()">🔥 EP Phase-In</li>
+      <li data-target="tab-dead" onclick="loadDeadStock()">💀 Dead Stock</li>
+      <li data-target="tab-core" onclick="loadCores()">💰 Core Recovery</li>
+      <li data-target="tab-ratio" onclick="loadRatio()">📊 Buy Ratio</li>
+      <li data-target="tab-wip" onclick="loadWIP()">🚧 WIP & Pipeline</li>
+      <li data-target="tab-replenish" onclick="loadReplenish()">📦 Stockouts</li>
+    </ul>
+  </aside>
+
+  <main class="main-content">
+
+    <section id="tab-ep" class="tab-content active">
+      <header><h1>Emergency Purchase Phase-In</h1><p>Parts bought from outside vendors that should be stocked.</p></header>
+      <div id="epLoading" class="loading">Loading Data from GitHub...</div>
+      <div class="table-container" style="display:none;" id="epContainer">
+        <table id="epTable">
+          <thead><tr><th>Part Description</th><th>Orders</th><th>Spend</th><th>Action</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-dead" class="tab-content">
+      <header><h1>Dead Stock Liquidator</h1><p>Cash trapped on the shelf with zero sales.</p></header>
+      <div class="summary-cards" id="deadSummary" style="display:none;">
+        <div class="card red"><h3>Trapped Cash</h3><h2 id="deadCash">$0.00</h2></div>
+      </div>
+      <div id="deadLoading" class="loading">Loading Data from GitHub...</div>
+      <div class="table-container" style="display:none;" id="deadContainer">
+        <table id="deadTable">
+          <thead><tr><th>Part Description</th><th>Qty on Shelf</th><th>Value</th><th>Action</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-core" class="tab-content">
+      <header><h1>Cash & Core Recovery</h1><p>Unreturned Cores sitting in the shop.</p></header>
+      <div class="summary-cards" id="coreSummary" style="display:none;">
+        <div class="card green"><h3>Core Value to Recover</h3><h2 id="coreCash">$0.00</h2></div>
+      </div>
+      <div id="coreLoading" class="loading">Loading Data from GitHub...</div>
+      <div class="table-container" style="display:none;" id="coreContainer">
+        <table id="coreTable">
+          <thead><tr><th>Part Description</th><th>Return Qty</th><th>Expected Credit</th><th>Action</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-ratio" class="tab-content">
+      <header><h1>Purchasing Health Monitor</h1><p>Proactive (Stock) vs Reactive (Special) Buying.</p></header>
+      <div id="ratioLoading" class="loading">Loading Data from GitHub...</div>
+      <div id="ratioResult" style="display:none; padding: 20px; font-size: 24px; font-weight: bold; background: white; border-radius: 8px;"></div>
+    </section>
+
+    <section id="tab-wip" class="tab-content">
+      <header><h1>Pipeline & Open ROs</h1><p>Money tied up in Service or waiting for customers.</p></header>
+      <div class="summary-cards" id="wipSummary" style="display:none;">
+        <div class="card red"><h3>Trapped in Open ROs</h3><h2 id="wipCash">$0.00</h2></div>
+      </div>
+      <div id="wipLoading" class="loading">Loading Data from GitHub...</div>
+      <div class="table-container" style="display:none;" id="wipContainer">
+        <table id="wipTable">
+          <thead><tr><th>Category</th><th>Pieces</th><th>Sales Value</th><th>Action</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-replenish" class="tab-content">
+      <header><h1>Stockout Monitor</h1><p>Empty shelves and bad DMS Min/Max settings.</p></header>
+      <div id="repLoading" class="loading">Loading Data from GitHub...</div>
+      <div class="table-container" style="display:none;" id="repContainer">
+        <table id="repTable">
+          <thead><tr><th>Part Description</th><th>Status</th><th>Avg Monthly</th><th>On Hand</th><th>Action</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  const formatCurrency = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+
+  // --- TAB NAVIGATION ---
+  document.querySelectorAll('.sidebar li').forEach(item => {
+    item.addEventListener('click', function() {
+      document.querySelectorAll('.sidebar li').forEach(li => li.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(section => section.classList.remove('active'));
+      this.classList.add('active');
+      document.getElementById(this.getAttribute('data-target')).classList.add('active');
+    });
+  });
+
+  // Helper function to fetch CSVs automatically from the /data/ folder
+  function fetchCSV(filePath, hasHeader, callback) {
+    Papa.parse(filePath, {
+      download: true,
+      header: hasHeader,
+      skipEmptyLines: true,
+      complete: function(results) { callback(results.data); },
+      error: function(err) { console.error("Error loading CSV:", err); alert("Could not load " + filePath); }
+    });
+  }
+
+  // --- MODULE 1: EP PHASE-IN (Data Point 3) ---
+  function loadEP() {
+    document.getElementById('epLoading').style.display = 'block';
+    document.getElementById('epContainer').style.display = 'none';
+    
+    fetchCSV('data/parts_data_point_3.csv', false, (data) => {
+      const partsMap = {};
+      data.forEach(row => {
+        if (row.length < 5) return;
+        const desc = row[0] ? row[0].trim() : "";
+        const qty = parseFloat(row[2]);
+        const spend = parseFloat(row[4]);
+        if (!isNaN(qty) && desc && !desc.includes("All Manf") && !desc.includes("Sales")) {
+          if (!partsMap[desc]) partsMap[desc] = { count: 0, spend: 0 };
+          partsMap[desc].count += 1;
+          partsMap[desc].spend += (isNaN(spend) ? 0 : spend);
+        }
+      });
+      let arr = Object.keys(partsMap).map(k => ({ desc: k, count: partsMap[k].count, spend: partsMap[k].spend })).filter(p => p.count >= 2).sort((a,b) => b.count - a.count);
+      
+      const tbody = document.querySelector('#epTable tbody'); tbody.innerHTML = '';
+      arr.forEach(p => {
+        const badge = p.count >= 3 ? `<span class="badge red">🔥 ADD TO SHELF</span>` : `<span class="badge green">Review</span>`;
+        tbody.innerHTML += `<tr><td>${p.desc}</td><td>${p.count}</td><td>${formatCurrency(p.spend)}</td><td>${badge}</td></tr>`;
+      });
+      document.getElementById('epLoading').style.display = 'none';
+      document.getElementById('epContainer').style.display = 'block';
+    });
+  }
+
+  // --- MODULE 2: DEAD STOCK (Data Point 1) ---
+  function loadDeadStock() {
+    document.getElementById('deadLoading').style.display = 'block';
+    fetchCSV('data/parts_data_point_1.csv', true, (data) => {
+      let deadStock = [], totalDead = 0;
+      data.forEach(row => {
+        const desc = row['Part/Description'] || "";
+        const ohQty = parseInt(row['O/HQty']) || 0;
+        const piecesSold = parseFloat(row['PiecesSold']) || 0;
+        const extCost = parseFloat(row['ExtCost']) || 0;
+        if (piecesSold === 0 && ohQty > 0) { deadStock.push({ desc, ohQty, extCost }); totalDead += extCost; }
+      });
+      deadStock.sort((a,b) => b.extCost - a.extCost);
+      
+      const tbody = document.querySelector('#deadTable tbody'); tbody.innerHTML = '';
+      deadStock.slice(0, 50).forEach(p => {
+        tbody.innerHTML += `<tr><td>${p.desc}</td><td>${p.ohQty}</td><td style="color:red; font-weight:bold;">${formatCurrency(p.extCost)}</td><td><span class="badge red">Return/Scrap</span></td></tr>`;
+      });
+      document.getElementById('deadCash').innerText = formatCurrency(totalDead);
+      document.getElementById('deadSummary').style.display = 'flex';
+      document.getElementById('deadLoading').style.display = 'none';
+      document.getElementById('deadContainer').style.display = 'block';
+    });
+  }
+
+  // --- MODULE 3: CORES (Data Point 5) ---
+  function loadCores() {
+    document.getElementById('coreLoading').style.display = 'block';
+    fetchCSV('data/parts_data_point_5.csv', true, (data) => {
+      let cores = [], totalCores = 0;
+      data.forEach(row => {
+        const desc = row['Part/Description'] ? row['Part/Description'].trim() : "";
+        const rtnQty = parseInt(row['RtnQty']) || 0;
+        const cost = parseFloat(row['Cost']) || 0;
+        const credit = rtnQty * cost;
+        if (rtnQty > 0 && desc.toUpperCase().includes('CORE')) { cores.push({ desc, rtnQty, credit }); totalCores += credit; }
+      });
+      cores.sort((a,b) => b.credit - a.credit);
+      
+      const tbody = document.querySelector('#coreTable tbody'); tbody.innerHTML = '';
+      cores.forEach(p => {
+        tbody.innerHTML += `<tr><td>${p.desc}</td><td>${p.rtnQty}</td><td style="color:green; font-weight:bold;">${formatCurrency(p.credit)}</td><td><span class="badge red">Ship Core</span></td></tr>`;
+      });
+      document.getElementById('coreCash').innerText = formatCurrency(totalCores);
+      document.getElementById('coreSummary').style.display = 'flex';
+      document.getElementById('coreLoading').style.display = 'none';
+      document.getElementById('coreContainer').style.display = 'block';
+    });
+  }
+
+  // --- MODULE 4: RATIO (Data Point 4) ---
+  function loadRatio() {
+    document.getElementById('ratioLoading').style.display = 'block';
+    fetchCSV('data/parts_data_point_4.csv', true, (data) => {
+      let stock = 0, special = 0;
+      data.forEach(row => {
+        const cat = row['Category'] ? row['Category'].trim().toLowerCase() : "";
+        const cost = parseFloat(row['Cost']) || 0;
+        if (cat === 'stock orders placed') stock = cost;
+        if (cat === 'special orders placed') special = cost;
+      });
+      const total = stock + special;
+      const pct = total > 0 ? ((stock/total)*100).toFixed(1) : 0;
+      const color = pct >= 75 ? '#05c46b' : '#ff3f34';
+      document.getElementById('ratioResult').innerHTML = `Current Stock Ratio: <span style="color:${color}">${pct}%</span> <br><small style="color:#7f8fa6; font-size:16px;">(Healthy Target is 80% Stock / 20% Special)</small>`;
+      document.getElementById('ratioLoading').style.display = 'none';
+      document.getElementById('ratioResult').style.display = 'block';
+    });
+  }
+
+  // --- MODULE 5: WIP (Data Point 7) ---
+  function loadWIP() {
+    document.getElementById('wipLoading').style.display = 'block';
+    fetchCSV('data/parts_data_point_7.csv', true, (data) => {
+      const tbody = document.querySelector('#wipTable tbody'); tbody.innerHTML = '';
+      let wipCash = 0;
+      data.forEach(row => {
+        const cat = row['Category'] ? row['Category'].trim() : "";
+        const sales = parseFloat(row['Sales']) || 0;
+        const pieces = parseFloat(row['Pieces']) || 0;
+        if (!cat || (sales === 0 && pieces === 0)) return;
+        
+        let badge = '<span class="badge green">Monitor</span>';
+        if (cat.toLowerCase().includes('open repair orders')) { badge = '<span class="badge red">Close ROs!</span>'; wipCash = sales; }
+        
+        tbody.innerHTML += `<tr><td><strong>${cat}</strong></td><td>${pieces}</td><td>${formatCurrency(sales)}</td><td>${badge}</td></tr>`;
+      });
+      document.getElementById('wipCash').innerText = formatCurrency(wipCash);
+      document.getElementById('wipSummary').style.display = 'flex';
+      document.getElementById('wipLoading').style.display = 'none';
+      document.getElementById('wipContainer').style.display = 'block';
+    });
+  }
+
+  // --- MODULE 6: STOCKOUTS (Data Point 6) ---
+  function loadReplenish() {
+    document.getElementById('repLoading').style.display = 'block';
+    fetchCSV('data/parts_data_point_6.csv', true, (data) => {
+      const tbody = document.querySelector('#repTable tbody'); tbody.innerHTML = '';
+      let issues = [];
+      data.forEach(row => {
+        const desc = row['Description'] ? row['Description'].trim() : "";
+        const status = row['Status'] ? row['Status'].trim() : "";
+        const avgMonth = parseFloat(row['Avg Month']) || 0;
+        const onHand = parseInt(row['On Hand']) || 0;
+        const onOrder = parseInt(row['On Order']) || 0;
+
+        if (status === 'Actv' && onHand === 0 && onOrder === 0 && avgMonth > 0) {
+          issues.push({ desc, status, avgMonth, onHand, reason: 'stockout' });
+        } else if (status === 'Non' && avgMonth >= 1.0) {
+          issues.push({ desc, status, avgMonth, onHand, reason: 'minmax' });
+        }
+      });
+      issues.sort((a,b) => b.avgMonth - a.avgMonth);
+      
+      issues.forEach(iss => {
+        let badge = iss.reason === 'stockout' ? '<span class="badge red">🚨 ORDER NOW</span>' : '<span class="badge orange">⚙️ Fix Min/Max</span>';
+        tbody.innerHTML += `<tr><td><strong>${iss.desc}</strong></td><td>${iss.status}</td><td>${iss.avgMonth.toFixed(2)} / mo</td><td>${iss.onHand}</td><td>${badge}</td></tr>`;
+      });
+      document.getElementById('repLoading').style.display = 'none';
+      document.getElementById('repContainer').style.display = 'block';
+    });
+  }
+
+  // Load the first tab by default when the page opens
+  window.onload = () => { loadEP(); };
+</script>
+</body>
+</html>
